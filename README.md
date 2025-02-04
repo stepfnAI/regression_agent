@@ -4,9 +4,9 @@ An AI-powered regression agent that automates the end-to-end process of building
 
 ## 🌟 Features
 
-- **Regression Support**: Currently optimized for any numerical value regression problems only (not autoregressive)
+- **Regression Support**: Optimized for continuous value prediction problems
 - **Intelligent Data Processing**: Automatically handles data preprocessing and validation
-- **Smart Feature Engineering**:
+- **Smart Feature Engineering**: 
   - AI-powered categorical feature handling and encoding
   - Automated target leakage detection and mitigation
   - Interactive feature selection and removal
@@ -30,7 +30,6 @@ An AI-powered regression agent that automates the end-to-end process of building
 ### Platform-Specific Requirements
 
 #### macOS
-
 If you're using macOS, you'll need to install OpenMP support:
 
 ```bash
@@ -38,7 +37,6 @@ brew install libomp
 ```
 
 #### Ubuntu/Debian
-
 Install OpenMP support using:
 
 ```
@@ -47,8 +45,8 @@ sudo apt-get install libomp-dev
 ```
 
 #### Windows
-
 No additional steps required - OpenMP support is included with the standard installation.
+
 
 ### Installation
 
@@ -70,7 +68,6 @@ source venv/bin/activate             # Linux/Mac
 ```
 
 3. Install dependencies:
-
 ```bash
 pip install -e .
 ```
@@ -85,11 +82,12 @@ export OPENAI_API_KEY='your_openai_api_key'
 
 ```bash
 # Windows
-streamlit run .\examples\app.py
+streamlit run .\examples\main_app.py
 
 # Linux/Mac
-streamlit run ./examples/app.py
+streamlit run ./examples/main_app.py
 ```
+
 
 ## 🔄 Workflow
 
@@ -101,7 +99,7 @@ streamlit run ./examples/app.py
 2. **Data Validation**
    - Automatic field mapping (CUST_ID, REVENUE, TARGET, etc.)
    - Data type validation and suggestions
-   - Interactive review and modification
+   - Numeric target validation
 
 3. **Feature Preprocessing**
    - Automatic categorical feature detection
@@ -114,18 +112,18 @@ streamlit run ./examples/app.py
    - Configurable validation window
 
 5. **Model Training**
-   - Multiple model training (LightGBM, CatBoost)
+   - Multiple regression models (XGBoost, LightGBM, CatBoost)
    - Automated hyperparameter optimization
    - Progress tracking
 
 6. **Model Selection**
-   - Comprehensive model evaluation
+   - Comprehensive model evaluation (R², MSE, MAE)
    - AI-powered model recommendations
    - Interactive model selection interface
 
 7. **Model Inference**
    - Batch prediction capabilities
-   - Model explanation and insights
+   - Prediction statistics and insights
    - Results export
 
 ## 🛠️ Key Components
@@ -134,7 +132,7 @@ streamlit run ./examples/app.py
 - **SFNDataTypeSuggestionAgent**: Manages data type validation
 - **SFNCategoricalFeatureAgent**: Processes categorical features
 - **SFNDataSplittingAgent**: Manages data splitting
-- **SFNModelTrainingAgent**: Handles model training
+- **SFNModelTrainingAgent**: Handles regression model training
 - **SFNModelSelectionAgent**: Provides model recommendations
 - **StreamlitView**: Manages user interface
 - **SFNSessionManager**: Handles application state
@@ -168,4 +166,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 5. Open a Pull Request
 
 ## 📧 Contact
-<puneet@stepfunction.ai>
+puneet@stepfunction.ai

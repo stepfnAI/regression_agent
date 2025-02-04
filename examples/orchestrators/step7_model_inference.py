@@ -96,12 +96,16 @@ class ModelInference:
     def _display_results_summary(self, results_df):
         """Display summary of inference results"""
         total_records = len(results_df)
-        avg_value = results_df['predicted_value'].mean()
+        mean_prediction = results_df['predicted_value'].mean()
+        std_prediction = results_df['predicted_value'].std()
         
         self.view.show_message(
             f"**Inference Results Summary:**\n"
             f"- Total Records: {total_records}\n"
-            f"- Average Value: {avg_value:.3f}",
+            f"- Mean Prediction: {mean_prediction:.2f}\n"
+            f"- Std Dev of Predictions: {std_prediction:.2f}\n"
+            f"- Min Prediction: {results_df['predicted_value'].min():.2f}\n"
+            f"- Max Prediction: {results_df['predicted_value'].max():.2f}",
             "info"
         )
         
@@ -112,10 +116,11 @@ class ModelInference:
     def _save_step_summary(self, results_df):
         """Save step summary for display in completed steps"""
         total_records = len(results_df)
-        avg_value = results_df['predicted_value'].mean()
+        mean_prediction = results_df['predicted_value'].mean()
         
         summary = "✅ Model Inference Complete:\n"
         summary += f"- Processed Records: **{total_records}**\n"
-        summary += f"- Average Value: **{avg_value:.3f}**\n"
+        summary += f"- Average Prediction: **{mean_prediction:.2f}**\n"
+        summary += f"- Prediction Range: **{results_df['predicted_value'].min():.2f}** to **{results_df['predicted_value'].max():.2f}**\n"
         
         self.session.set('step_7_summary', summary) 

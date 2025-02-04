@@ -8,24 +8,20 @@ from sfn_blueprint import SFNPromptManager
 from regression_agent.config.model_config import MODEL_CONFIG, DEFAULT_LLM_MODEL, DEFAULT_LLM_PROVIDER
 import json
 
-
 class SFNMappingAgent(SFNAgent):
     """Agent responsible for mapping critical fields for regression tasks"""
-
+    
     def __init__(self, llm_provider=DEFAULT_LLM_PROVIDER):
         super().__init__(name="Field Mapper", role="Data Analyst")
         if not os.getenv('OPENAI_API_KEY'):
-            # Set this to your actual key
-            os.environ['OPENAI_API_KEY'] = "your-api-key-here"
+            os.environ['OPENAI_API_KEY'] = "your-api-key-here"  # Set this to your actual key
         self.ai_handler = SFNAIHandler()
         self.llm_provider = llm_provider
         self.model_config = MODEL_CONFIG["mapping_agent"]
-        parent_path = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), '../'))
-        prompt_config_path = os.path.join(
-            parent_path, 'config', 'prompt_config.json')
+        parent_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../'))
+        prompt_config_path = os.path.join(parent_path, 'config', 'prompt_config.json')
         self.prompt_manager = SFNPromptManager(prompt_config_path)
-
+        
     def execute_task(self, task: Task) -> Dict[str, str]:
         """Maps dataset columns to critical fields for regression"""
         if not isinstance(task.data, pd.DataFrame):
@@ -38,7 +34,7 @@ class SFNMappingAgent(SFNAgent):
     def _identify_fields(self, columns: List[str]) -> Dict[str, str]:
         """Identify critical fields from column names"""
         system_prompt, user_prompt = self.prompt_manager.get_prompt(
-            agent_type='mapping_agent',
+            agent_type='mapping_agent', 
             llm_provider=self.llm_provider,
             prompt_type='main',
             columns=columns
@@ -51,7 +47,7 @@ class SFNMappingAgent(SFNAgent):
             "n": 1,
             "stop": None
         })
-
+        
         configuration = {
             "messages": [
                 {"role": "system", "content": system_prompt},
@@ -68,7 +64,7 @@ class SFNMappingAgent(SFNAgent):
             configuration=configuration,
             model=provider_config['model']
         )
-
+        
         try:
             if isinstance(response, dict):
                 content = response['choices'][0]['message']['content']
@@ -76,14 +72,14 @@ class SFNMappingAgent(SFNAgent):
                 content = response.choices[0].message.content
             else:
                 content = response
-
+                
             cleaned_str = content.strip()
             cleaned_str = cleaned_str.replace('```json', '').replace('```', '')
             start_idx = cleaned_str.find('{')
             end_idx = cleaned_str.rfind('}')
             if start_idx != -1 and end_idx != -1:
                 cleaned_str = cleaned_str[start_idx:end_idx + 1]
-
+            
             mappings = json.loads(cleaned_str)
             return self._validate_mappings(mappings)
         except Exception as e:
@@ -100,11 +96,11 @@ class SFNMappingAgent(SFNAgent):
         """Validate and normalize the mappings"""
         required_keys = ["cust_id", "prod_id", "date", "revenue", "target"]
         validated_mappings = {}
-
+        
         for key in required_keys:
             validated_mappings[key] = mappings.get(key)
-
-        return validated_mappings
+            
+        return validated_mappings 
 
     def get_validation_params(self, response, task):
         """
@@ -124,4 +120,4 @@ class SFNMappingAgent(SFNAgent):
             actual_output=response,
             columns=task.data.columns.tolist()
         )
-        return prompts
+        return prompts 

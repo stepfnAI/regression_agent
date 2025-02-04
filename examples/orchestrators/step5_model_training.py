@@ -3,7 +3,7 @@ from regression_agent.agents.model_training_agent import SFNModelTrainingAgent
 from regression_agent.config.model_config import DEFAULT_LLM_PROVIDER
 from regression_agent.utils.model_manager import ModelManager
 import pandas as pd
-import numpy as np
+
 class ModelTraining:
     def __init__(self, session_manager, view):
         self.session = session_manager
@@ -109,10 +109,9 @@ class ModelTraining:
         
         metrics_text = "**Metrics:**\n"
         metrics_to_display = {
-            'MSE': metrics.get('mean_squared_error'),
-            'RMSE': np.sqrt(metrics.get('mean_squared_error')),
-            'MAE': metrics.get('mean_absolute_error'),
-            'R²': metrics.get('r2_score')
+            'R² Score': metrics.get('r2'),
+            'Mean Squared Error': metrics.get('mse'),
+            'Mean Absolute Error': metrics.get('mae')
         }
         
         for metric_name, value in metrics_to_display.items():
@@ -139,13 +138,12 @@ class ModelTraining:
             metrics = results.get('metrics', {})
             summary += f"- {model_name}:\n"
             metrics_to_display = {
-                'MSE': metrics.get('mean_squared_error'),
-                'RMSE': np.sqrt(metrics.get('mean_squared_error')),
-                'MAE': metrics.get('mean_absolute_error'),
-                'R²': metrics.get('r2_score')
+                'R²': metrics.get('r2'),
+                'MSE': metrics.get('mse'),
+                'MAE': metrics.get('mae')
             }
             for metric_name, value in metrics_to_display.items():
                 formatted_value = format_metric(value)
                 summary += f"  - {metric_name}: **{formatted_value}**\n"
-        print(f"Step 5 summary: {summary}")
+        
         self.session.set('step_5_summary', summary) 

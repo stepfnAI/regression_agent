@@ -34,7 +34,6 @@ class SFNModelSelectionAgent(SFNAgent):
             raise ValueError("No model results found for analysis")
 
         # Format model results for LLM
-        print(f"Model results: {model_results}")
         selection_info = self._format_model_results(model_results)
         
         # Get recommendation from LLM
@@ -49,16 +48,14 @@ class SFNModelSelectionAgent(SFNAgent):
         for model_name, results in model_results.items():
             metrics = results.get('metrics', {})
             formatted_info += f"Model: {model_name}\n"
-            formatted_info += f"- Mean Squared Error: {metrics.get('mean_squared_error', 'N/A')}\n"
-            formatted_info += f"- Mean Absolute Error: {metrics.get('mean_absolute_error', 'N/A')}\n"
-            formatted_info += f"- R-squared: {metrics.get('r2_score', 'N/A')}\n"
-            formatted_info += f"- Root Mean Squared Error: {metrics.get('root_mean_squared_error', 'N/A')}\n\n"
+            formatted_info += f"- R² Score: {metrics.get('r2', 'N/A')}\n"
+            formatted_info += f"- Mean Squared Error: {metrics.get('mse', 'N/A')}\n"
+            formatted_info += f"- Mean Absolute Error: {metrics.get('mae', 'N/A')}\n\n"
         
         return formatted_info
 
     def _get_recommendation(self, selection_info: str) -> Dict:
         """Get model recommendation from LLM"""
-        print(f"Selection info: {selection_info}")
         system_prompt, user_prompt = self.prompt_manager.get_prompt(
             agent_type='model_selector',
             llm_provider=self.llm_provider,
