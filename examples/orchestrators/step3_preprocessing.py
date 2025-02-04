@@ -11,23 +11,28 @@ class FeaturePreprocessing:
         self.leakage_detector = SFNLeakageDetectionAgent()
         
     def execute(self):
-        """Orchestrates the feature preprocessing step"""
-        # First handle leakage detection if not done
-        if not self.session.get('leakage_detection_complete'):
-            if not self._handle_leakage_detection():
-                return False
-        
-        # Then handle categorical features if not done
-        if not self.session.get('categorical_features_complete'):
+        """Execute preprocessing step"""
+        try:
+            # Get analysis type
+            is_forecasting = self.session.get('is_forecasting', False)
+            
+            # Handle categorical features for both cases
             if not self._handle_categorical_features():
                 return False
-        
-        # If complete, mark step as done
-        if not self.session.get('step_3_complete'):
+            
+            # Only do leakage detection for regression
+            if not is_forecasting:
+                if not self._handle_leakage_detection():
+                    return False
+            
+            # Save preprocessing summary
             self._save_step_summary()
             self.session.set('step_3_complete', True)
+            return True
             
-        return True
+        except Exception as e:
+            self.view.show_message(f"Error in preprocessing: {str(e)}", "error")
+            return False
         
     def _handle_leakage_detection(self):
         """Handle leakage detection analysis"""
@@ -146,18 +151,23 @@ class FeaturePreprocessing:
             return False
         
     def _save_step_summary(self):
-        """Save step summary for display in completed steps"""
-        removed_features = self.session.get('removed_features', [])
-        feature_info = self.session.get('feature_info', {})
+        """Save preprocessing summary"""
+        is_forecasting = self.session.get('is_forecasting', False)
+        summary = "✅ Step 3 Complete\n\n"
         
-        summary = "✅ Feature Preprocessing Complete:\n"
-        if removed_features:
-            summary += f"\n🔍 Removed {len(removed_features)} features due to target leakage:\n"
-            for feature in removed_features:
-                summary += f"- {feature}\n"
+        # Add categorical features info
+        cat_features = self.session.get('categorical_features', {})
+        if cat_features:
+            summary += "**Categorical Features:**\n"
+            for col, info in cat_features.items():
+                summary += f"- {col}: {len(info['unique_values'])} unique values\n"
         
-        summary += "\n📊 Encoded Features:\n"
-        for feature, info in feature_info.items():
-            summary += f"- {feature}: **{info['encoding_type']}**\n"
-            
+        # Add leakage info only for regression
+        if not is_forecasting:
+            leakage_info = self.session.get('leakage_info', {})
+            if leakage_info:
+                summary += "\n**Leakage Detection:**\n"
+                for feature, risk in leakage_info.items():
+                    summary += f"- {feature}: {risk} risk\n"
+        
         self.session.set('step_3_summary', summary) 

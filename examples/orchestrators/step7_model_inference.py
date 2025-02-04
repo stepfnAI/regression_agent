@@ -1,6 +1,8 @@
 from sfn_blueprint import Task
 from regression_agent.utils.model_manager import ModelManager
 import pandas as pd
+from typing import Dict
+import numpy as np
 
 class ModelInference:
     def __init__(self, session_manager, view):
@@ -9,118 +11,160 @@ class ModelInference:
         self.model_manager = ModelManager()
         
     def execute(self):
-        """Orchestrates the model inference step"""
-        # Get split info which contains inference data
-        split_info = self.session.get('split_info')
-        if split_info is None or 'infer_df' not in split_info:
-            self.view.show_message("❌ No inference data found in split info.", "error")
+        """Execute model inference step"""
+        try:
+            # Get analysis type and data
+            is_forecasting = self.session.get('is_forecasting', False)
+            selected_model = self.session.get('selected_model')
+            self.mappings = self.session.get('field_mappings')
+            
+            if not selected_model:
+                self.view.show_message(
+                    "❌ No selected model found. Please complete model selection first.",
+                    "error"
+                )
+                return False
+                
+            # Get split info which contains inference data
+            split_info = self.session.get('split_info')
+            infer_df = split_info.get('infer_df')
+            print('>>>infer_df', infer_df)
+            if split_info is None or 'infer_df' not in split_info:
+                self.view.show_message("❌ No inference data found in split info.", "error")
+                return False
+            
+            # Get appropriate target column based on analysis type
+            target_column = self.mappings.get('forecasting_field' if is_forecasting else 'target')
+            
+            # Get predictions
+            with self.view.display_spinner('Generating predictions...'):
+                predictions = self._generate_predictions(
+                    selected_model, 
+                    infer_df, 
+                    target_column,
+                    is_forecasting
+                )
+            
+            if predictions is None:
+                self.view.show_message("❌ Failed to generate predictions.", "error")
+                return False
+            
+            # Save predictions
+            self.session.set('predictions', predictions)
+            
+            # Display results
+            self._display_predictions(predictions, infer_df, is_forecasting)
+            
+            # Save summary
+            self._save_step_summary(predictions, infer_df, is_forecasting)
+            # Always show results if available (moved outside the if block)
+            results_df = self.session.get('inference_results')
+            if results_df is not None:
+                # Show summary
+                summary = self.session.get('step_7_summary')
+                if summary:
+                    self.view.show_message(summary, "success")
+                
+                # Display full results
+                self.view.display_subheader("📊 Detailed Results")
+                self.view.display_dataframe(results_df)
+                
+                # Add download button
+                self.view.create_download_button(
+                    label="📥 Download Predictions as CSV",
+                    data=results_df.to_csv(index=False),
+                    file_name="prediction_results.csv",
+                    mime_type='text/csv'
+                )
+            
+            # Return True only if step is complete
+            return self.session.get('step_7_complete', False)
+            
+        except Exception as e:
+            self.view.show_message(f"Error in model inference: {str(e)}", "error")
             return False
             
-        # Get inference data from split info
-        inference_data = split_info['infer_df']
+    def _generate_predictions(self, model_info: Dict, infer_df: pd.DataFrame, 
+                            target_column: str, is_forecasting: bool) -> pd.Series:
+        """Generate predictions using the selected model"""
+        try:
+            model = model_info.get('model')
+            features = model_info.get('training_features', [])
+            mappings = self.session.get('field_mappings')
             
-        # Get selected model info
-        model_results = self.session.get('model_results', {})
-        selected_model = self.session.get('selected_model')
-        if not selected_model or selected_model not in model_results:
-            self.view.show_message("❌ No model selected.", "error")
-            return False
+            if not model or not features:
+                return None
             
-        # Get model ID from results
-        model_id = model_results[selected_model].get('model_id')
-        if not model_id:
-            self.view.show_message("❌ Model ID not found.", "error")
-            return False
+            # Handle forecasting vs regression differently
+            if is_forecasting:
+                model_name = model_info.get('model_name', '').lower()
+                if model_name == 'prophet':
+                    # Prophet needs specific formatting
+                    forecast_df = pd.DataFrame({
+                        'ds': pd.to_datetime(infer_df[mappings.get('date')]),
+                        'y': np.nan  # Prophet requires 'y' column
+                    })
+                    forecast = model.predict(forecast_df)
+                    predictions = forecast['yhat']
+                else:
+                    # For other forecasting models (XGBoost, LightGBM)
+                    predictions = model.predict(infer_df[features])
+            else:
+                # Standard regression prediction
+                predictions = model.predict(infer_df[features])
             
-        # Display inference button if not already done
-        if not self.session.get('step_7_complete'):
-            self.view.display_subheader("🔮 Model Inference")
-            if self.view.display_button("Run Inference", key="run_inference"):
-                try:
-                    # Load the model and metadata
-                    model, metadata = self.model_manager.load_model(model_id)
-                    
-                    # Get features from metadata
-                    train_features = metadata.get('features', [])
-                    if not train_features:
-                        self.view.show_message("❌ Training features not found in model metadata.", "error")
-                        return False
-                    
-                    # Prepare inference data using same features as training
-                    X_inference = inference_data[train_features]
-                    
-                    # Make predictions
-                    predictions = model.predict(X_inference)
-                    
-                    # Add predictions to inference data
-                    results_df = inference_data.copy()
-                    results_df['predicted_value'] = predictions
-                    
-                    # Save results
-                    self.session.set('inference_results', results_df)
-                    
-                    # Display results summary
-                    self._display_results_summary(results_df)
-                    
-                    # Save step summary
-                    self._save_step_summary(results_df)
-                    
-                    self.session.set('step_7_complete', True)
-                except Exception as e:
-                    self.view.show_message(f"❌ Error during inference: {str(e)}", "error")
-                    return False
-        
-        # Always show results if available (moved outside the if block)
-        results_df = self.session.get('inference_results')
-        if results_df is not None:
-            # Show summary
-            summary = self.session.get('step_7_summary')
-            if summary:
-                self.view.show_message(summary, "success")
+            print('>>>predictions', predictions)
+            return predictions
             
-            # Display full results
-            self.view.display_subheader("📊 Detailed Results")
-            self.view.display_dataframe(results_df)
+        except Exception as e:
+            self.view.show_message(f"Prediction error: {str(e)}", "error")
+            return None
             
-            # Add download button
-            self.view.create_download_button(
-                label="📥 Download Predictions as CSV",
-                data=results_df.to_csv(index=False),
-                file_name="prediction_results.csv",
-                mime_type='text/csv'
-            )
+    def _display_predictions(self, predictions, infer_df: pd.DataFrame, 
+                           is_forecasting: bool):
+        """Display prediction results"""
+        self.view.display_subheader("Prediction Results")
         
-        # Return True only if step is complete
-        return self.session.get('step_7_complete', False)
+        # Create results DataFrame
+        results_df = infer_df.copy()
+        results_df['Predicted'] = predictions
+        self.session.set('inference_results', results_df)
+        print('>>>results_df', results_df.head(3))
+        if is_forecasting:
+            # For forecasting, show date and prediction
+            display_df = results_df[[self.session.get('field_mappings').get('date'), 'Predicted']].head(10)
+            msg = "**Sample Forecasts** (First 10 periods):\n"
+        else:
+            # For regression, show basic stats
+            msg = "**Prediction Statistics:**\n"
+            msg += f"- Mean Prediction: {predictions.mean():.2f}\n"
+            msg += f"- Min Prediction: {predictions.min():.2f}\n"
+            msg += f"- Max Prediction: {predictions.max():.2f}\n\n"
+            msg += "**Sample Predictions** (First 10 records):\n"
+            display_df = results_df.head(10)
         
-    def _display_results_summary(self, results_df):
-        """Display summary of inference results"""
-        total_records = len(results_df)
-        mean_prediction = results_df['predicted_value'].mean()
-        std_prediction = results_df['predicted_value'].std()
+        self.view.show_message(msg, "info")
+        self.view.display_dataframe(display_df)
         
-        self.view.show_message(
-            f"**Inference Results Summary:**\n"
-            f"- Total Records: {total_records}\n"
-            f"- Mean Prediction: {mean_prediction:.2f}\n"
-            f"- Std Dev of Predictions: {std_prediction:.2f}\n"
-            f"- Min Prediction: {results_df['predicted_value'].min():.2f}\n"
-            f"- Max Prediction: {results_df['predicted_value'].max():.2f}",
-            "info"
-        )
+    def _save_step_summary(self, predictions: pd.Series, infer_df: pd.DataFrame, 
+                          is_forecasting: bool):
+        """Save step summary with prediction details"""
+        summary = "✅ Model Inference Complete\n\n"
         
-        # Display sample of results
-        self.view.display_subheader("Sample Predictions")
-        self.view.display_dataframe(results_df.head())
+        # Add analysis type
+        summary += f"**Analysis Type:** {'Forecasting' if is_forecasting else 'Regression'}\n\n"
         
-    def _save_step_summary(self, results_df):
-        """Save step summary for display in completed steps"""
-        total_records = len(results_df)
-        mean_prediction = results_df['predicted_value'].mean()
+        # Add prediction stats
+        summary += "**Prediction Statistics:**\n"
+        summary += f"- Total Predictions: {len(predictions)}\n"
+        summary += f"- Mean Value: {predictions.mean():.2f}\n"
+        summary += f"- Range: {predictions.min():.2f} to {predictions.max():.2f}\n"
         
-        summary = "✅ Model Inference Complete:\n"
-        summary += f"- Processed Records: **{total_records}**\n"
-        summary += f"- Average Prediction: **{mean_prediction:.2f}**\n"
-        summary += f"- Prediction Range: **{results_df['predicted_value'].min():.2f}** to **{results_df['predicted_value'].max():.2f}**\n"
+        if is_forecasting:
+            # Add forecasting-specific info
+            date_col = self.session.get('field_mappings').get('date')
+            summary += f"\n**Forecast Period:**\n"
+            summary += f"- From: {infer_df[date_col].min()}\n"
+            summary += f"- To: {infer_df[date_col].max()}\n"
         
         self.session.set('step_7_summary', summary) 

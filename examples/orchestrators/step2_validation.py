@@ -13,23 +13,34 @@ class DataValidation:
         self.excluded_features = {}  # Will store features excluded from model training
         
     def execute(self):
-        """Orchestrates the data validation step"""
-        # Handle mapping if not done
-        if not self.session.get('mapping_complete'):
-            if not self._handle_mapping():
+        """Execute the data validation step"""
+        # Check if data is available
+        df = self.session.get('df')
+        if df is None:
+            self.view.show_message("❌ No data found. Please upload data first.", "error")
+            return False
+        
+        # Get mapping status
+        mapping_complete = self.session.get('mapping_complete', False)
+        mapping_confirmed = self.session.get('mapping_confirmed', False)
+        data_types_validated = self.session.get('data_types_complete', False)
+        
+        # First handle mapping if not confirmed
+        if not mapping_confirmed:
+            if not self._handle_mapping():  # Call mapping agent first
                 return False
-                
-        # Handle data types if not done
-        if not self.session.get('data_types_complete'):
+            return False  # Return to refresh UI after mapping
+            
+        # If mapping confirmed but data types not validated
+        if mapping_confirmed and not data_types_validated:
             if not self._handle_data_types():
                 return False
+                
+        # If data types validated, proceed to analysis type selection
+        if data_types_validated and not mapping_complete:
+            return self._get_analysis_type(list(df.columns))
         
-        # If both are complete, mark step as done
-        if not self.session.get('step_2_complete'):
-            self._save_step_summary()
-            self.session.set('step_2_complete', True)
-            
-        return True
+        return mapping_complete
         
     def _handle_mapping(self):
         """Handle column mapping logic"""
@@ -83,25 +94,34 @@ class DataValidation:
         self.view.display_subheader("AI Suggested Critical Field Mappings")
         
         # Get current mappings and available columns
-        suggested_mappings = self.session.get('suggested_mappings')
-        current_mappings = self.session.get('field_mappings', suggested_mappings)
+        suggested_mappings = self.session.get('suggested_mappings', {})  # Default to empty dict
+        current_mappings = self.session.get('field_mappings', {})  # Default to empty dict
         df = self.session.get('df')
+        
+        if df is None:
+            self.view.show_message("❌ No data found. Please upload data first.", "error")
+            return False
+            
         all_columns = list(df.columns)
         mapping_confirmed = self.session.get('mapping_confirmed', False)
         
         # Check for mandatory fields in AI suggestions
-        mandatory_fields = ['target']  # Add other mandatory fields if needed
-        missing_mandatory = [field for field in mandatory_fields 
-                            if field not in suggested_mappings or not suggested_mappings[field]]
+        mandatory_fields = ['cust_id']
+        missing_mandatory = []
+        if suggested_mappings:  # Only check if we have suggestions
+            missing_mandatory = [
+                field for field in mandatory_fields 
+                if field not in suggested_mappings or not suggested_mappings[field]
+            ]
         
-        if missing_mandatory:
-            missing_fields = ', '.join(missing_mandatory)
+        if missing_mandatory or not suggested_mappings:  # If no suggestions or missing fields
+            missing_fields = ', '.join(missing_mandatory) if missing_mandatory else "required fields"
             self.view.show_message(
-                f"⚠️ AI couldn't find mapping for mandatory field(s): {missing_fields}. "
+                f"⚠️ AI couldn't find mapping for {missing_fields}. "
                 "Please map these fields manually.",
                 "warning"
             )
-            # Automatically switch to manual mapping if mandatory fields are missing
+            # Automatically switch to manual mapping
             return self._handle_manual_mapping(all_columns, current_mappings)
         
         # Format message with consistent field names
@@ -136,29 +156,25 @@ class DataValidation:
             if action == "Use AI Recommended Mappings":
                 if self.view.display_button("Confirm Mappings"):
                     self.session.set('field_mappings', suggested_mappings)
-                    self.session.set('mapping_complete', True)
-                    self.session.set('mapping_confirmed', True)  # Set confirmation flag
-                    return True
-                    
+                    self.session.set('mapping_confirmed', True)
+                    return False
             else:  # Select Columns Manually
                 return self._handle_manual_mapping(all_columns, current_mappings)
+        else:
+            # Get analysis type after mapping confirmation
+            return self._get_analysis_type(all_columns)
         
         return False
         
     def _handle_manual_mapping(self, all_columns, current_mappings):
         """Handle manual column mapping selection"""
-        # Required fields with standardized names
-        required_fields = ["cust_id", "target"]
-        # Changed from product_id to prod_id
-        optional_fields = ["date", "prod_id", "revenue"]  
+        # Only show mapping options if not confirmed
+        required_fields = ["cust_id"]
+        optional_fields = ["target", "date", "prod_id", "revenue"]
         
         modified_mappings = {}
         suggested_mappings = self.session.get('suggested_mappings', {})
         
-        # Handle required fields
-        self.view.display_subheader("Required Fields")
-        
-        # Define display names for better UI presentation
         field_display_names = {
             "cust_id": "Customer ID",
             "target": "Target",
@@ -167,50 +183,116 @@ class DataValidation:
             "prod_id": "Product ID"
         }
         
+        self.view.display_subheader("Required Fields")
         for field in required_fields:
             current_value = suggested_mappings.get(field) or current_mappings.get(field)
-            default_index = (all_columns.index(current_value) + 1 
-                            if current_value in all_columns 
-                            else 0)
-            
             modified_mappings[field] = self.view.select_box(
                 f"Select column for {field_display_names[field]}",
-                options=[""] + all_columns,
-                index=default_index
+                options=[""] + all_columns
             )
         
-        # Handle optional fields
         self.view.display_subheader("Optional Fields")
         for field in optional_fields:
             current_value = suggested_mappings.get(field) or current_mappings.get(field)
-            default_index = (all_columns.index(current_value) + 1 
-                            if current_value in all_columns 
-                            else 0)
-            
             value = self.view.select_box(
                 f"Select column for {field_display_names[field]} (optional)",
-                options=[""] + all_columns,
-                index=default_index
+                options=[""] + all_columns
             )
-            if value:  # Only add if a column was selected
+            if value:
                 modified_mappings[field] = value
         
-        # Confirm modified mappings
-        if self.view.display_button("Confirm Modified Mappings"):
-            # Validate that required fields are mapped
-            missing_required = [f for f in required_fields if not modified_mappings.get(f)]
-            if missing_required:
+        if self.view.display_button("Confirm Mappings"):
+            target_mapped = bool(modified_mappings.get('target'))
+            date_mapped = bool(modified_mappings.get('date'))
+            
+            if not target_mapped and not date_mapped:
                 self.view.show_message(
-                    f"❌ Please map required fields: {', '.join(missing_required)}", 
+                    "❌ Please map either target or date column to proceed.",
                     "error"
                 )
-            else:
-                self.session.set('field_mappings', modified_mappings)
-                print(f">>>>>Field mappings: {modified_mappings}")
-                self.session.set('mapping_complete', True)
-                self.session.set('mapping_confirmed', True)  # Set confirmation flag
-                return True
+                return False
+            
+            self.session.set('field_mappings', modified_mappings)
+            self.session.set('mapping_confirmed', True)
+            
+        return False
+
+    def _get_analysis_type(self, all_columns):
+        """Determine analysis type based on confirmed mappings"""
+        mappings = self.session.get('field_mappings')
         
+        # Add field display names dictionary
+        field_display_names = {
+            "cust_id": "Customer ID",
+            "target": "Target",
+            "forecasting_field": "Forecasting Field",
+            "revenue": "Revenue",
+            "date": "Date",
+            "prod_id": "Product ID"
+        }
+        
+        # Display confirmed mappings
+        self.view.display_subheader("Confirmed Mappings")
+        mapping_msg = "\n".join(
+            [f"- {field_display_names[k]}: **{v}**" 
+             for k, v in mappings.items()]
+        )
+        self.view.show_message(mapping_msg, "success")
+        
+        # Determine analysis type based on mappings
+        target_mapped = bool(mappings.get('target'))
+        date_mapped = bool(mappings.get('date'))
+        
+        self.view.display_subheader("Analysis Type Selection")
+        
+        if target_mapped and date_mapped:
+            problem_type = self.view.radio_select(
+                "What type of analysis would you like to perform?",
+                options=[
+                    "Regression",
+                    "Forecasting"
+                ],
+                key="problem_type_choice"
+            )
+            
+            if problem_type == "Forecasting":
+                forecast_field = self.view.select_box(
+                    "Select field to forecast",
+                    options=[col for col in all_columns if col != mappings.get('date')],
+                    key="forecast_field"
+                )
+                mappings['forecasting_field'] = forecast_field  # New field for forecasting
+                self.session.set('is_forecasting', True)
+            else:
+                self.session.set('is_forecasting', False)
+                
+        elif target_mapped:
+            self.view.show_message(
+                "ℹ️ Proceeding with regression analysis since only target is mapped.",
+                "info"
+            )
+            self.session.set('is_forecasting', False)
+            
+        else:  # only date_mapped
+            self.view.show_message(
+                "ℹ️ Since only date is mapped, this will be a forecasting analysis.",
+                "info"
+            )
+            forecast_field = self.view.select_box(
+                "Select field to forecast",
+                options=[col for col in all_columns if col != mappings.get('date')],
+                key="forecast_field"
+            )
+            mappings['forecasting_field'] = forecast_field  # Use forecasting_field instead of target
+            self.session.set('is_forecasting', True)
+        
+        if self.view.display_button("✅ Proceed with Analysis"):
+            self.session.set('field_mappings', mappings)
+            self.session.set('mapping_complete', True)
+            self.session.set('step_2_complete', True)
+            self._save_step_summary()
+            return True
+            
         return False
         
     def _handle_data_types(self):
@@ -318,19 +400,30 @@ class DataValidation:
         """Save step summary for display in completed steps"""
         mappings = self.session.get('field_mappings')
         df = self.session.get('df')
-        print(f">>>>>Field mappings1: {mappings}")
-        print(f'>>>df1: {df.head(3)}')
         field_display_names = {
             "cust_id": "Customer ID",
             "target": "Target",
+            "forecasting_field": "Forecasting Field",  # Add new display name
             "revenue": "Revenue",
             "date": "Date",
             "prod_id": "Product ID"
         }
         
-        summary = "✅ Data Validation Complete:\n"
+        summary = "✅ Step 2 Complete\n\n"
+        
+        # Add analysis type confirmation
+        problem_type = "Forecasting" if self.session.get('is_forecasting') else "Regression"
+        summary += f"**Confirmed Analysis Type:** {problem_type}\n"
+        if problem_type == "Forecasting":
+            summary += f"- Forecasting Field: **{mappings.get('forecasting_field')}**\n"
+            summary += f"- Time Column: **{mappings.get('date')}**\n\n"
+        
+        # Add field mappings with data types
+        summary += "Field Mappings:\n"
         for field, col in mappings.items():
-            dtype = df[col].dtype if col else None
-            display_name = field_display_names.get(field, field)
-            summary += f"- {display_name}: **{col}** ({dtype})\n"
+            if col:  # Only show mapped fields
+                dtype = df[col].dtype if col else None
+                display_name = field_display_names.get(field, field)
+                summary += f"- {display_name}: **{col}** ({dtype})\n"
+            
         self.session.set('step_2_summary', summary) 

@@ -12,9 +12,9 @@ class StreamlitView(SFNStreamlitView):
         """Override file_uploader to include key parameter"""
         return st.file_uploader(label, type=accepted_types, key=key)
 
-    def select_box(self, label: str, options: List[str], index: Optional[int] = None) -> str:
+    def select_box(self, label: str, options: List[str], index: Optional[int] = None, key: Optional[str] = None) -> str:
         """Add select box functionality"""
-        return st.selectbox(label, options, index=index)
+        return st.selectbox(label, options, index=index, key=key)
     
     def save_uploaded_file(self, uploaded_file: Any) -> Optional[str]:
         """Save uploaded file temporarily"""
