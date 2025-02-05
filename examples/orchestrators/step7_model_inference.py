@@ -108,27 +108,29 @@ class ModelInference:
                     # Get start and end dates from inference data
                     date_col = mappings.get('date')
                     start_date = pd.to_datetime(infer_df[date_col].min())
-                    end_date = pd.to_datetime(infer_df[date_col].max())
                     
-                    print('>>> Forecasting from:', start_date)
-                    print('>>> Forecasting to:', end_date)
+                    # Instead of adding months to end_date, calculate number of periods needed
+                    base_periods = len(infer_df)
+                    total_periods = base_periods + 2  # Add 2 more months
                     
                     # Get the required number of periods from model
                     nobs = model.nobs  # Number of observations used in training
                     print('>>> Training observations:', nobs)
                     
-                    # Prepare exog data just for prediction period
-                    exog_data = infer_df[exog_features].astype(float)
-                    print('>>> Exog data shape:', exog_data.shape)
+                    # Prepare exog data for all periods
+                    last_exog = infer_df[exog_features].iloc[-1:]
+                    extra_periods = total_periods - len(infer_df)
+                    exog_data = pd.concat([infer_df[exog_features]] + [last_exog] * extra_periods).astype(float)
                     
-                    # Get forecast for specific dates
+                    # Get forecast
                     predictions = model.get_forecast(
-                        steps=len(infer_df),
+                        steps=total_periods,
                         exog=exog_data
                     ).predicted_mean
                     
-                    # Ensure index matches inference dates
-                    predictions.index = pd.to_datetime(infer_df[date_col])
+                    # Create date range for exactly the number of periods we want
+                    date_range = pd.date_range(start=start_date, periods=total_periods, freq='M')
+                    predictions.index = date_range
                     
                 except Exception as e:
                     print(f">>> SARIMAX error: {str(e)}")
@@ -138,10 +140,18 @@ class ModelInference:
                 # Prophet specific handling
                 date_col = mappings.get('date')
                 forecast_df = pd.DataFrame()
-                forecast_df['ds'] = pd.to_datetime(infer_df[date_col])
+                
+                # Create date range first to ensure correct number of periods
+                date_range = pd.date_range(
+                    start=pd.to_datetime(infer_df[date_col].min()),
+                    end=pd.to_datetime(infer_df[date_col].max()) + pd.DateOffset(months=2),
+                    freq='M'
+                )
+                
+                forecast_df['ds'] = date_range
                 forecast_df['y'] = np.nan
                 forecast = model.predict(forecast_df)
-                predictions = forecast['yhat'].values
+                predictions = pd.Series(forecast['yhat'].values, index=date_range)
                 print('>>>forecast', forecast)
                 print('>>>forecast_df', forecast_df)
             else:
@@ -170,12 +180,10 @@ class ModelInference:
             # For forecasting, predictions come with a datetime index
             date_col = self.session.get('field_mappings').get('date')
             
-            # Convert predictions to a Series with datetime index if not already
-            if not isinstance(predictions, pd.Series):
-                predictions = pd.Series(predictions, index=pd.to_datetime(infer_df[date_col]))
-            
-            # Merge predictions with results using the date
-            results_df['Predicted'] = predictions.values
+            # Create a DataFrame with all prediction dates
+            results_df = pd.DataFrame(index=predictions.index)
+            results_df[date_col] = results_df.index
+            results_df['Predicted'] = predictions
             
             # For display, show date and prediction
             display_df = results_df[[date_col, 'Predicted']].head(10)
