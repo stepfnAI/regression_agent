@@ -124,10 +124,19 @@ class SFNModelTrainingAgent(SFNAgent):
                 exec(training_code, globals_dict, globals_dict)
                 
                 print(f">>>>>> Successfully trained model on attempt {attempt + 1}")
+                model = globals_dict.get('model', None)
+                
+                # For SARIMAX, we need the fitted results
+                if model and task.data.get('model_name', '').lower() == 'sarimax':
+                    print(">>> Fitting SARIMAX model...")
+                    model = model.fit()  # Get the fitted results
+                    print(">>> SARIMAX model fitted")
+                
                 return {
                     'metrics': globals_dict.get('metrics', {}),
-                    'model': globals_dict.get('model', None),
+                    'model': model,
                     'training_features': globals_dict.get('training_features', []),
+                    'model_name': task.data.get('model_name'),
                     'records_info': {
                         'total_train': len(task.data['df_train']),
                         'used_train': len(train_df_filtered),
@@ -146,6 +155,7 @@ class SFNModelTrainingAgent(SFNAgent):
                         },
                         'model': None,
                         'training_features': [],
+                        'model_name': task.data.get('model_name'),
                         'records_info': {
                             'total_train': len(task.data['df_train']),
                             'used_train': 0,

@@ -47,7 +47,7 @@ class ModelTraining:
             
             # Get appropriate models list
             if is_forecasting:
-                models = ['XGBoost'] # ["Prophet", "SARIMAX", "XGBoost", "LightGBM"]
+                models = ["Prophet","SARIMAX"] # ["Prophet", "SARIMAX", "XGBoost", "LightGBM"]
             else:
                 models = ["XGBoost", "LightGBM", "RandomForest", "CatBoost"]
             
@@ -69,6 +69,8 @@ class ModelTraining:
                     
                     if result.get('model') is not None:
                         results[model_name] = result
+                        indi_results = {model_name: result}
+                        self._display_training_results(indi_results, is_forecasting)
                     else:
                         self.view.show_message(
                             f"⚠️ {model_name} training failed: {result.get('metrics', {}).get('error')}",
