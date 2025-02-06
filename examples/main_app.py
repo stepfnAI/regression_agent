@@ -20,7 +20,7 @@ from examples.orchestrators.step7_model_inference import ModelInference
 
 class RegressionApp:
     def __init__(self):
-        self.view = StreamlitView(title="Regression App")
+        self.view = StreamlitView(title="Regression & Forecasting App")
         self.session = SFNSessionManager()
         self.orchestrators = {
             1: DataUpload(self.session, self.view),
