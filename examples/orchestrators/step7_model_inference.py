@@ -185,7 +185,7 @@ class ModelInference:
             msg += f"- Mean Prediction: {predictions.mean():.2f}\n"
             msg += f"- Min Prediction: {predictions.min():.2f}\n"
             msg += f"- Max Prediction: {predictions.max():.2f}\n\n"
-            msg += "**Sample Predictions** (First 10 records):\n"
+            msg += "**Sample Predictions** (Max 10 records):\n"
             display_df = results_df.head(10)
         
         self.session.set('inference_results', results_df)

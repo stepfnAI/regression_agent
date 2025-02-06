@@ -284,7 +284,7 @@ class DataValidation:
                 
                 # Add forecast periods dropdown
                 forecast_periods = self.view.select_box(
-                    "How many months do you want to forecast?",
+                    "How many periods do you want to forecast?",
                     options=[3, 4, 5, 6],
                     key="forecast_periods"
                 )
@@ -323,7 +323,7 @@ class DataValidation:
             
             # Add forecast periods dropdown
             forecast_periods = self.view.select_box(
-                "How many months do you want to forecast?",
+                "How many periods do you want to forecast?",
                 options=[3, 4, 5, 6],
                 key="forecast_periods"
             )
