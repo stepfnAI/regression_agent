@@ -3,6 +3,7 @@ from typing import Any, List, Optional
 import streamlit as st
 import os
 from pathlib import Path
+import pandas as pd
 
 class StreamlitView(SFNStreamlitView):
     def __init__(self, title: str):
@@ -12,9 +13,21 @@ class StreamlitView(SFNStreamlitView):
         """Override file_uploader to include key parameter"""
         return st.file_uploader(label, type=accepted_types, key=key)
 
-    def select_box(self, label: str, options: List[str], index: Optional[int] = None) -> str:
-        """Add select box functionality"""
-        return st.selectbox(label, options, index=index)
+    def select_box(self, label: str, options: List[str], default: Optional[str] = None, key: Optional[str] = None) -> str:
+        """Add select box functionality with default value support
+        
+        Args:
+            label (str): Label for the select box
+            options (List[str]): List of options to choose from
+            default (str, optional): Default value to select. Defaults to None.
+            key (str, optional): Unique key for the component. Defaults to None.
+        
+        Returns:
+            str: Selected option
+        """
+        # Find index of default value if provided
+        index = options.index(default) if default in options else 0
+        return st.selectbox(label, options, index=index, key=key)
     
     def save_uploaded_file(self, uploaded_file: Any) -> Optional[str]:
         """Save uploaded file temporarily"""
@@ -114,3 +127,41 @@ class StreamlitView(SFNStreamlitView):
             streamlit.delta_generator.DeltaGenerator: Column object
         """
         return self.columns[index] 
+
+    def plot_bar_chart(self, data: pd.DataFrame, x_col: str, y_col: str, title: str = None):
+        """Display a bar chart using streamlit with plotly
+        
+        Args:
+            data (pd.DataFrame): DataFrame containing the data to plot
+            x_col (str): Column name for x-axis
+            y_col (str): Column name for y-axis
+            title (str, optional): Title for the chart. Defaults to None.
+        """
+        # Format dates to YYYY-MM format
+        data = data.copy()
+        data[x_col] = pd.to_datetime(data[x_col]).dt.strftime('%Y-%m')
+        
+        # Extract field name from title for y-axis label
+        y_axis_label = 'Forecasted Value'
+        if title and 'Forecasted' in title:
+            y_axis_label = title.replace('by Month', '').strip()
+        
+        # Create plotly figure
+        fig = {
+            'data': [{
+                'type': 'bar',
+                'x': data[x_col],
+                'y': data[y_col],
+                'marker': {'color': '#00A4EF'},
+            }],
+            'layout': {
+                'title': title,
+                'xaxis': {'title': 'Month', 'tickangle': 45},
+                'yaxis': {'title': y_axis_label},
+                'template': 'plotly_dark',
+                'height': 400,
+                'margin': {'b': 100}  # Add bottom margin for rotated labels
+            }
+        }
+        
+        st.plotly_chart(fig, use_container_width=True) 

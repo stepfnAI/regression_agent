@@ -11,23 +11,34 @@ class FeaturePreprocessing:
         self.leakage_detector = SFNLeakageDetectionAgent()
         
     def execute(self):
-        """Orchestrates the feature preprocessing step"""
-        # First handle leakage detection if not done
-        if not self.session.get('leakage_detection_complete'):
-            if not self._handle_leakage_detection():
+        """Execute preprocessing step"""
+        try:
+            # Get analysis type
+            is_forecasting = self.session.get('is_forecasting', False)
+            
+            # Handle categorical features first
+            cat_result = self._handle_categorical_features()
+            if cat_result is None:  # Still waiting for confirmation
                 return False
-        
-        # Then handle categorical features if not done
-        if not self.session.get('categorical_features_complete'):
-            if not self._handle_categorical_features():
+            if not cat_result:  # Error occurred
                 return False
-        
-        # If complete, mark step as done
-        if not self.session.get('step_3_complete'):
+            
+            # Only do leakage detection for regression
+            if not is_forecasting:
+                leakage_result = self._handle_leakage_detection()
+                if leakage_result is None:  # Still waiting for user input
+                    return False
+                if not leakage_result:  # Error occurred
+                    return False
+            
+            # Save preprocessing summary
             self._save_step_summary()
             self.session.set('step_3_complete', True)
+            return True
             
-        return True
+        except Exception as e:
+            self.view.show_message(f"Error in preprocessing: {str(e)}", "error")
+            return False
         
     def _handle_leakage_detection(self):
         """Handle leakage detection analysis"""
@@ -36,15 +47,27 @@ class FeaturePreprocessing:
             mappings = self.session.get('field_mappings')
             target_col = mappings.get('target')
             
-            with self.view.display_spinner('🔍 Analyzing potential target leakage...'):
-                task_data = {
-                    'df': df,
-                    'target_column': target_col
-                }
-                
-                leakage_analysis = self.leakage_detector.execute_task(
-                    Task("Detect target leakage", data=task_data)
-                )
+            # Check if leakage detection was already completed
+            if self.session.get('leakage_detection_complete'):
+                return True
+
+            # If we've already analyzed but waiting for confirmation
+            if self.session.get('leakage_analysis_done'):
+                leakage_analysis = self.session.get('leakage_analysis')
+            else:
+                # Do the initial analysis
+                with self.view.display_spinner('🔍 Analyzing potential target leakage...'):
+                    task_data = {
+                        'df': df,
+                        'target_column': target_col
+                    }
+                    
+                    leakage_analysis = self.leakage_detector.execute_task(
+                        Task("Detect target leakage", data=task_data)
+                    )
+                    # Store the analysis results
+                    self.session.set('leakage_analysis', leakage_analysis)
+                    self.session.set('leakage_analysis_done', True)
             
             # Get all features that need attention
             severe_features = leakage_analysis['severe_leakage']
@@ -94,10 +117,16 @@ class FeaturePreprocessing:
                             f"✅ Removed {len(features_to_remove)} features",
                             "success"
                         )
+                    # Mark leakage detection as complete
+                    self.session.set('leakage_detection_complete', True)
+                    self.session.set('leakage_analysis_done', False)  # Reset for next time
                     return True
-                return False
+                
+                # Don't return False, just return None to keep the UI state
+                return None
             else:
                 self.view.show_message("✅ No target leakage detected", "success")
+                self.session.set('leakage_detection_complete', True)
                 return True
             
         except Exception as e:
@@ -107,11 +136,14 @@ class FeaturePreprocessing:
     def _handle_categorical_features(self):
         """Handle categorical feature processing"""
         try:
+            # Check if already completed
+            if self.session.get('categorical_features_complete'):
+                return True
+            
             df = self.session.get('df')
             mappings = self.session.get('field_mappings')
             
             with self.view.display_spinner('🤖 AI is analyzing categorical features...'):
-                # Create task for categorical feature analysis
                 task_data = {
                     'df': df,
                     'mappings': mappings
@@ -141,23 +173,30 @@ class FeaturePreprocessing:
                 self.session.set('categorical_features_complete', True)
                 return True
                 
+            return None  # Return None to keep UI state when button not clicked
+            
         except Exception as e:
             self.view.show_message(f"Error in categorical feature processing: {str(e)}", "error")
             return False
         
     def _save_step_summary(self):
-        """Save step summary for display in completed steps"""
-        removed_features = self.session.get('removed_features', [])
-        feature_info = self.session.get('feature_info', {})
+        """Save preprocessing summary"""
+        is_forecasting = self.session.get('is_forecasting', False)
+        summary = "✅ Step 3 Complete\n\n"
         
-        summary = "✅ Feature Preprocessing Complete:\n"
-        if removed_features:
-            summary += f"\n🔍 Removed {len(removed_features)} features due to target leakage:\n"
-            for feature in removed_features:
-                summary += f"- {feature}\n"
+        # Add categorical features info
+        cat_features = self.session.get('categorical_features', {})
+        if cat_features:
+            summary += "**Categorical Features:**\n"
+            for col, info in cat_features.items():
+                summary += f"- {col}: {len(info['unique_values'])} unique values\n"
         
-        summary += "\n📊 Encoded Features:\n"
-        for feature, info in feature_info.items():
-            summary += f"- {feature}: **{info['encoding_type']}**\n"
-            
+        # Add leakage info only for regression
+        if not is_forecasting:
+            leakage_info = self.session.get('leakage_info', {})
+            if leakage_info:
+                summary += "\n**Leakage Detection:**\n"
+                for feature, risk in leakage_info.items():
+                    summary += f"- {feature}: {risk} risk\n"
+        
         self.session.set('step_3_summary', summary) 
