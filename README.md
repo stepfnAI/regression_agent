@@ -1,19 +1,22 @@
-# Regression Agent
+# Regression & Forecasting Agent
 
-An AI-powered regression agent that automates the end-to-end process of building and selecting regression models, with interactive capabilities and comprehensive model analysis.
+An AI-powered agent that automates the end-to-end process of building and selecting regression and forecasting models, with interactive capabilities and comprehensive model analysis.
 
 ## 🌟 Features
 
-- **Regression Support**: Optimized for continuous value prediction problems
+- **Multiple Problem Types Support**: 
+  - Optimized for continuous value prediction (regression)
+  - Time series forecasting with automatic temporal feature handling
 - **Intelligent Data Processing**: Automatically handles data preprocessing and validation
 - **Smart Feature Engineering**: 
   - AI-powered categorical feature handling and encoding
   - Automated target leakage detection and mitigation
   - Interactive feature selection and removal
+  - Temporal feature generation for forecasting
 - **Automated Model Pipeline**:
   - Data validation and cleaning
   - Feature preprocessing
-  - Intelligent data splitting
+  - Intelligent data splitting (including time-aware splits for forecasting)
   - Model training with multiple algorithms
   - Model selection and evaluation
 - **Interactive Interface**: Review and modify AI suggestions at each step
@@ -96,32 +99,39 @@ streamlit run ./examples/main_app.py
    - Initial data preview
    - Reset functionality available
 
-2. **Data Validation**
-   - Automatic field mapping (CUST_ID, REVENUE, TARGET, etc.)
+2. **Problem Type Selection**
+   - Choose between regression and forecasting
+   - Configure problem-specific parameters
+   - Automatic validation of requirements for each type
+
+3. **Data Validation**
+   - Automatic field mapping (CUST_ID, REVENUE, TARGET, TIMESTAMP, etc.)
    - Data type validation and suggestions
    - Numeric target validation
+   - Temporal consistency checks for forecasting
 
-3. **Feature Preprocessing**
+4. **Feature Preprocessing**
    - Automatic categorical feature detection
    - Intelligent encoding selection
    - Interactive preprocessing options
 
-4. **Data Splitting**
+5. **Data Splitting**
    - Smart train/validation/inference split
    - Temporal awareness for time-series data
    - Configurable validation window
+   - Time-based validation for forecasting problems
 
-5. **Model Training**
+6. **Model Training**
    - Multiple regression models (XGBoost, LightGBM, CatBoost)
    - Automated hyperparameter optimization
    - Progress tracking
 
-6. **Model Selection**
+7. **Model Selection**
    - Comprehensive model evaluation (R², MSE, MAE)
    - AI-powered model recommendations
    - Interactive model selection interface
 
-7. **Model Inference**
+8. **Model Inference**
    - Batch prediction capabilities
    - Prediction statistics and insights
    - Results export
