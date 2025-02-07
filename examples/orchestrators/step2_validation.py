@@ -127,16 +127,16 @@ class DataValidation:
         # Format message with consistent field names
         message = "🎯 AI Suggested Mappings:\n"
         field_display_names = {
-            "cust_id": "Customer ID",
+            "cust_id": "ID",
             "target": "Target",
-            "revenue": "Revenue",
             "date": "Date",
             "prod_id": "Product ID"
         }
         
         for field, mapped_col in suggested_mappings.items():
-            display_name = field_display_names.get(field, field)
-            message += f"- {display_name}:  **{mapped_col or 'Not Found'}**\n"
+            if field != 'revenue':  # Skip revenue field
+                display_name = field_display_names.get(field, field)
+                message += f"- {display_name}:  **{mapped_col or 'Not Found'}**\n"
         
         self.view.show_message(message, "info")
         self.view.display_markdown("---")
@@ -170,13 +170,13 @@ class DataValidation:
         """Handle manual column mapping selection"""
         # Only show mapping options if not confirmed
         required_fields = ["cust_id"]
-        optional_fields = ["target", "date", "prod_id", "revenue"]
+        optional_fields = ["target", "date", "prod_id"]
         
         modified_mappings = {}
         suggested_mappings = self.session.get('suggested_mappings', {})
         
         field_display_names = {
-            "cust_id": "Customer ID",
+            "cust_id": "ID",
             "target": "Target",
             "revenue": "Revenue",
             "date": "Date",
@@ -235,7 +235,7 @@ class DataValidation:
         
         # Add field display names dictionary
         field_display_names = {
-            "cust_id": "Customer ID",
+            "cust_id": "ID",
             "target": "Target",
             "forecasting_field": "Forecasting Field",
             "revenue": "Revenue",
@@ -447,7 +447,7 @@ class DataValidation:
         mappings = self.session.get('field_mappings')
         df = self.session.get('df')
         field_display_names = {
-            "cust_id": "Customer ID",
+            "cust_id": "ID",
             "target": "Target",
             "forecasting_field": "Forecasting Field",  # Add new display name
             "revenue": "Revenue",

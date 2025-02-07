@@ -10,7 +10,7 @@ class ModelTraining:
         self.session = session_manager
         self.view = view
         self.training_agent = SFNModelTrainingAgent()
-        self.model_pool = ['xgboost', 'lightgbm', 'random_forest', 'catboost']
+        self.model_pool = ['xgboost', 'lightgbm', 'catboost']
         self.model_manager = ModelManager()
         
     def execute(self):
@@ -51,7 +51,7 @@ class ModelTraining:
             if is_forecasting:
                 models = ["Prophet","SARIMAX"] # ["Prophet", "SARIMAX", "XGBoost", "LightGBM"]
             else:
-                models = ["XGBoost", "LightGBM", "RandomForest", "CatBoost"]
+                models = ["XGBoost", "LightGBM", "CatBoost"]
             
             # Train each model
             results = {}
@@ -117,6 +117,7 @@ class ModelTraining:
                     f"- R² Score: {metrics.get('r2', 'N/A'):.4f}\n"
                     f"- MSE: {metrics.get('mse', 'N/A'):.4f}\n"
                     f"- MAE: {metrics.get('mae', 'N/A'):.4f}\n"
+                    f"- RMSLE: {metrics.get('rmsle', 'N/A'):.4f}\n"
                 )
             
             self.view.show_message(metric_msg, "info")
@@ -141,6 +142,7 @@ class ModelTraining:
             else:
                 summary += f"- R² Score: {metrics.get('r2', 'N/A'):.4f}\n"
                 summary += f"- MSE: {metrics.get('mse', 'N/A'):.4f}\n"
+                summary += f"- RMSLE: {metrics.get('rmsle', 'N/A'):.4f}\n"
             summary += f"- MAE: {metrics.get('mae', 'N/A'):.4f}\n"
             
             # Add records info
@@ -166,7 +168,8 @@ class ModelTraining:
         metrics_to_display = {
             'R² Score': metrics.get('r2'),
             'Mean Squared Error': metrics.get('mse'),
-            'Mean Absolute Error': metrics.get('mae')
+            'Mean Absolute Error': metrics.get('mae'),
+            'Root Mean Squared Log Error': metrics.get('rmsle')
         }
         
         for metric_name, value in metrics_to_display.items():
