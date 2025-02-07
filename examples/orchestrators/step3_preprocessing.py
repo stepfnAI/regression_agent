@@ -2,6 +2,7 @@ from sfn_blueprint import Task, SFNValidateAndRetryAgent
 from regression_agent.agents.categorical_feature_agent import SFNCategoricalFeatureAgent
 from regression_agent.agents.leakage_detection_agent import SFNLeakageDetectionAgent
 from regression_agent.config.model_config import DEFAULT_LLM_PROVIDER
+import pandas as pd
 
 class FeaturePreprocessing:
     def __init__(self, session_manager, view):
@@ -198,5 +199,5 @@ class FeaturePreprocessing:
                 summary += "\n**Leakage Detection:**\n"
                 for feature, risk in leakage_info.items():
                     summary += f"- {feature}: {risk} risk\n"
-        
-        self.session.set('step_3_summary', summary) 
+                    
+        self.session.set('step_3_summary', summary)
