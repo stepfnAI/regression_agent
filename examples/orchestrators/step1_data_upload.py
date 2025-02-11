@@ -40,7 +40,7 @@ class DataUpload:
                     self.view.display_dataframe(df.head())
                     
                     if not self.session.get('step_1_complete'):
-                        if self.view.display_button("Confirm and Continue", key="confirm_data"):
+                        if self.view.display_button("Proceed to Data Mapping", key="confirm_data"):
                             self._save_step_summary(df)
                             self.session.set('step_1_complete', True)
                             return True

@@ -21,7 +21,7 @@ class DataSplitting:
         # If we have split info, show it and handle confirmation
         if existing_split_info:
             self._display_split_info(existing_split_info)
-            if self.view.display_button("Confirm Data Split", key="confirm_split"):
+            if self.view.display_button("Proceed to Model Training", key="confirm_split"):
                 self._save_step_summary(existing_split_info)
                 self.session.set('step_4_complete', True)
                 return True
@@ -95,7 +95,7 @@ class DataSplitting:
                 self._display_split_info(split_info)
                 
                 # Show confirmation button
-                if self.view.display_button("Confirm Data Split", key="confirm_split"):
+                if self.view.display_button("Proceed to Model Training", key="confirm_split"):
                     self._save_step_summary(split_info)
                     self.session.set('step_4_complete', True)
                     return True
@@ -113,13 +113,10 @@ class DataSplitting:
         existing_split_info = self.session.get('split_info')
         splitting_started = self.session.get('splitting_started', False)
         
-        # If we have split info, show it and handle confirmation
+        # If we have split info, just display it without confirmation button
         if existing_split_info:
             self._display_split_info(existing_split_info)
-            if self.view.display_button("Confirm Data Split"):
-                self._save_step_summary(existing_split_info)
-                self.session.set('step_4_complete', True)
-                return existing_split_info
+            return existing_split_info  # Just return the info, no confirmation here
 
         # If splitting hasn't started, show instructions input
         if not splitting_started:

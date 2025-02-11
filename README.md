@@ -123,7 +123,7 @@ streamlit run ./examples/main_app.py
 
 6. **Model Training**
    - Multiple regression models (XGBoost, LightGBM, CatBoost)
-   - Automated hyperparameter optimization
+   - Default hyperparameters for regression (Note: Automated hyperparameter tuning coming soon)
    - Progress tracking
 
 7. **Model Selection**
@@ -135,6 +135,16 @@ streamlit run ./examples/main_app.py
    - Batch prediction capabilities
    - Prediction statistics and insights
    - Results export
+
+## 🔜 Upcoming Features
+
+- **Automated Hyperparameter Optimization**: 
+  - Intelligent hyperparameter tuning for regression models
+  - Bayesian optimization support
+  - Cross-validation integration
+- **Enhanced Model Explainability**
+- **Additional Model Support**
+- **Advanced Feature Engineering Options**
 
 ## 🛠️ Key Components
 

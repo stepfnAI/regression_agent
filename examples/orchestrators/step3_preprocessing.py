@@ -168,7 +168,7 @@ class FeaturePreprocessing:
                     summary_msg += f"  - Unique values: {info['cardinality']}\n"
             self.view.show_message(summary_msg, "info")
             
-            if self.view.display_button("Confirm Feature Processing"):
+            if self.view.display_button("Proceed to Data Splitting", key="confirm_features"):
                 self.session.set('df', modified_df)
                 self.session.set('feature_info', feature_info)
                 self.session.set('categorical_features_complete', True)

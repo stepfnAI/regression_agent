@@ -27,9 +27,11 @@ class DataValidation:
         
         # First handle mapping if not confirmed
         if not mapping_confirmed:
-            if not self._handle_mapping():  # Call mapping agent first
-                return False
-            return False  # Return to refresh UI after mapping
+            mapping_result = self._handle_mapping()  # Store the result
+            if mapping_result:
+                # If mapping is successful, proceed to data types
+                return self._handle_data_types()
+            return mapping_result
             
         # If mapping confirmed but data types not validated
         if mapping_confirmed and not data_types_validated:
@@ -38,7 +40,10 @@ class DataValidation:
                 
         # If data types validated, proceed to analysis type selection
         if data_types_validated and not mapping_complete:
-            return self._get_analysis_type(list(df.columns))
+            analysis_result = self._get_analysis_type(list(df.columns))
+            if analysis_result:
+                self._save_step_summary()  # Save summary after analysis type is selected
+            return analysis_result
         
         return mapping_complete
         
@@ -157,7 +162,7 @@ class DataValidation:
                 if self.view.display_button("Confirm Mappings"):
                     self.session.set('field_mappings', suggested_mappings)
                     self.session.set('mapping_confirmed', True)
-                    return False
+                    return True  # Just confirm mapping and proceed to next step
             else:  # Select Columns Manually
                 return self._handle_manual_mapping(all_columns, current_mappings)
         else:
@@ -218,7 +223,8 @@ class DataValidation:
             
             self.session.set('field_mappings', modified_mappings)
             self.session.set('mapping_confirmed', True)
-            
+            return True
+        
         return False
 
     def _get_analysis_type(self, all_columns):
@@ -343,7 +349,10 @@ class DataValidation:
         
     def _handle_data_types(self):
         """Handle data type conversions"""
-        # try:
+        # Skip if already completed
+        if self.session.get('data_types_complete'):
+            return self._get_analysis_type(list(self.session.get('df').columns))
+        
         df = self.session.get('df')
         mappings = self.session.get('field_mappings')
         target_processed = self.session.get('target_classification_complete', False)
@@ -389,14 +398,12 @@ class DataValidation:
                 dtypes_msg += f"- {col}: **{dtype}**\n"
         self.view.show_message(dtypes_msg, "info")
         
-        if self.view.display_button("Confirm Data Types"):
-            self.session.set('df', modified_df)  # Update again to be safe
+        if self.view.display_button("Proceed to Analysis Type", key="confirm_datatypes"):
+            self.session.set('df', modified_df)
             self.session.set('data_types_complete', True)
-            return True
-                
-        # except Exception as e:
-        #     self.view.show_message(f"Error in data type conversion: {str(e)}", "error")
-        # return False
+            return self._get_analysis_type(list(modified_df.columns))
+            
+        return False
         
     def _handle_target_classification(self, df: pd.DataFrame, target_col: str) -> pd.DataFrame:
         """Handle target column validation for regression"""
